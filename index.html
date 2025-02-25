@@ -29,21 +29,35 @@
         const optionsDiv = document.getElementById("options");
 
         function joinGame() {
+            console.log("joinGame() called");
             const username = document.getElementById("username").value.trim();
             if (!username) {
                 alert("Please enter a username!");
                 return;
             }
 
-            ws = new WebSocket("wss://treasure-hunt-game-qvvk.onrender.com/"); // Your Render URL
+            console.log("Connecting to server...");
+            ws = new WebSocket("wss://your-unique-app-name.onrender.com"); // Your Render URL
 
             ws.onopen = function() {
-                ws.send(JSON.stringify({ type: "join", username: username }));
-                loginDiv.style.display = "none";
-                gameDiv.style.display = "block";
+                console.log("onopen triggered, checking state...");
+                // Wait until WebSocket is fully open
+                const sendJoinMessage = () => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        console.log("Connected! Sending username:", username);
+                        ws.send(JSON.stringify({ type: "join", username: username }));
+                        loginDiv.style.display = "none";
+                        gameDiv.style.display = "block";
+                    } else {
+                        console.log("Still connecting, waiting...");
+                        setTimeout(sendJoinMessage, 100); // Retry after 100ms
+                    }
+                };
+                sendJoinMessage();
             };
 
             ws.onmessage = function(event) {
+                console.log("Message received:", event.data);
                 const data = JSON.parse(event.data);
                 if (data.type === "update") {
                     output.textContent = "Scores:\n" + JSON.stringify(data.players, null, 2);
@@ -67,10 +81,12 @@
             };
 
             ws.onerror = function(error) {
+                console.log("WebSocket error:", error);
                 output.textContent = "Connection failed. Try again.";
             };
 
-            ws.onclose = function() {
+            ws.onclose = function(event) {
+                console.log("Disconnected. Code:", event.code, "Reason:", event.reason);
                 output.textContent = "Disconnected from server.";
                 gameDiv.style.display = "none";
                 loginDiv.style.display = "block";
