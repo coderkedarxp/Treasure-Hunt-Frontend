@@ -1,26 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multiplayer Game</title>
+    <title>Trivia Race</title>
     <style>
         #game { display: none; }
         #output { white-space: pre-wrap; }
+        button { margin: 5px; }
     </style>
 </head>
 <body>
     <div id="login">
-        <h1>Join the Game</h1>
+        <h1>Join Trivia Race</h1>
         <input type="text" id="username" placeholder="Enter your username" />
         <button onclick="joinGame()">Join</button>
     </div>
     <div id="game">
-        <h1>Game On!</h1>
-        <p>Move: 
-            <button onclick="sendMove('up')">Up</button>
-            <button onclick="sendMove('down')">Down</button>
-            <button onclick="sendMove('left')">Left</button>
-            <button onclick="sendMove('right')">Right</button>
-        </p>
+        <h1>Trivia Race</h1>
+        <p id="question"></p>
+        <div id="options"></div>
         <pre id="output"></pre>
     </div>
     <script>
@@ -28,6 +25,8 @@
         const loginDiv = document.getElementById("login");
         const gameDiv = document.getElementById("game");
         const output = document.getElementById("output");
+        const questionP = document.getElementById("question");
+        const optionsDiv = document.getElementById("options");
 
         function joinGame() {
             const username = document.getElementById("username").value.trim();
@@ -36,10 +35,9 @@
                 return;
             }
 
-            ws = new WebSocket("wss://treasure-hunt-game-qvvk.onrender.com"); 
+            ws = new WebSocket("wss://treasure-hunt-game-qvvk.onrender.com/"); // Your Render URL
 
             ws.onopen = function() {
-                // Send username to server
                 ws.send(JSON.stringify({ type: "join", username: username }));
                 loginDiv.style.display = "none";
                 gameDiv.style.display = "block";
@@ -48,14 +46,27 @@
             ws.onmessage = function(event) {
                 const data = JSON.parse(event.data);
                 if (data.type === "update") {
-                    output.textContent = "Players:\n" + JSON.stringify(data.players, null, 2);
+                    output.textContent = "Scores:\n" + JSON.stringify(data.players, null, 2);
+                } else if (data.type === "question") {
+                    questionP.textContent = data.question;
+                    optionsDiv.innerHTML = "";
+                    data.options.forEach(opt => {
+                        const btn = document.createElement("button");
+                        btn.textContent = opt;
+                        btn.onclick = () => ws.send(JSON.stringify({ type: "answer", answer: opt }));
+                        optionsDiv.appendChild(btn);
+                    });
+                } else if (data.type === "timeout") {
+                    questionP.textContent = "Time’s up! Next question soon...";
+                    optionsDiv.innerHTML = "";
                 } else if (data.type === "win") {
-                    output.textContent = `${data.winner} won the game!`;
+                    output.textContent = `${data.winner} wins!`;
+                    questionP.textContent = "";
+                    optionsDiv.innerHTML = "";
                 }
             };
 
             ws.onerror = function(error) {
-                console.error("WebSocket error:", error);
                 output.textContent = "Connection failed. Try again.";
             };
 
@@ -64,12 +75,6 @@
                 gameDiv.style.display = "none";
                 loginDiv.style.display = "block";
             };
-        }
-
-        function sendMove(direction) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: "move", direction: direction }));
-            }
         }
     </script>
 </body>
